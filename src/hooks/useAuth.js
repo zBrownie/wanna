@@ -9,8 +9,10 @@ function useAuth() {
     AuthContext,
     (state) => state.handleCreateAccount
   );
+  const erro = useContextSelector(AuthContext, (state) => state.erro);
+  const isLoading = useContextSelector(AuthContext, (state) => state.isLoading);
 
-  return { user, login, logout, createAccount };
+  return { user, login, logout, createAccount, erro, isLoading };
 }
 
 export default useAuth;

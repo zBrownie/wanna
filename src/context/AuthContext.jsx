@@ -1,84 +1,66 @@
 import { useState, useEffect } from "react";
 import { createContext } from "use-context-selector";
-import { Auth, Firestore } from "../services/fb";
-
-const {
-  onAuthStateChanged,
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-} = Auth;
-
-const { getFirestore, addDoc, collection } = Firestore;
+import WebService from "./../services/webservice";
 export const AuthContext = createContext(null);
 
 export default function AuthProvider({ children }) {
-  const auth = getAuth();
-  const db = getFirestore();
   const [userApp, setUserApp] = useState(null);
-
-  const handleLogin = (email, password) => {
-    signInWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        // Signed in
-        const user = userCredential.user;
-        // ...
-      })
-      .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-      });
+  const [isLoading, setLoading] = useState("idle");
+  const [erro, setErro] = useState(null);
+  const handleLogin = async (data) => {
+    setLoading("loading");
+    try {
+      const response = await WebService.post("auth", data);
+      console.log(response);
+      if (response.status !== 200) throw new Error(response.statusText);
+      setUserApp(response.data);
+    } catch (error) {
+      handlerErro(error);
+    }
   };
-  const handleLogout = () => {
-    signOut(auth)
-      .then(() => {
-        // Sign-out successful.
-      })
-      .catch((error) => {
-        // An error happened.
-      });
-  };
-  const handleCreateAccount = (email, password) => {
-    createUserWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        // Signed in
-        const user = userCredential.user;
-        const userData = {
-          userName: user.email.split("@")[0],
-          email: user.email,
-          admin: false,
-          cart: [],
-          cpf: 0,
-          cep: 0,
-          location: {},
-          lastLogin: new Date(),
-        };
-        addDoc(collection(db, "users"), userData)
-          .then((doc) => {
-            console.log("ID", doc.id);
-          })
-          .catch((e) => {})
-          .finally(() => {});
-      })
-      .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-      });
+  const handleLogout = () => {};
+  const handleCreateAccount = async (data) => {
+    setLoading("loading");
+    try {
+      const response = await WebService.post("register", data);
+      if (response.status !== 200) throw new Error(response.statusText);
+      setUserApp(response.data);
+    } catch (error) {
+      handlerErro(error);
+    }
   };
 
-  useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // https://firebase.google.com/docs/reference/js/firebase.User
-
-        const uid = user.uid;
-      }
+  const handlerErro = (erro) => {
+    setLoading("error");
+    setErro({
+      code: erro.code,
+      message: erro.message,
     });
-  }, [auth]);
+    console.warn({ erro });
+    console.warn(`CODE: ${erro.code} Message: ${erro.message}`);
+  };
+  useEffect(() => {
+    if (userApp != null) {
+      const tokenLocal = window.localStorage.getItem("wanna-token");
+      if (tokenLocal != null || tokenLocal !== undefined) {
+        if (userApp.token !== tokenLocal) {
+          // validar
+          return;
+        }
+      }
+      window.localStorage.setItem("wanna-token", tokenLocal);
+    }
+  }, [userApp]);
   return (
     <AuthContext.Provider
-      value={{ userApp, handleLogin, handleLogout, handleCreateAccount }}
+      value={{
+        userApp,
+        handleLogin,
+        handleLogout,
+        handleCreateAccount,
+        erro,
+        isLoading,
+      }}
     >
       {children}
     </AuthContext.Provider>
